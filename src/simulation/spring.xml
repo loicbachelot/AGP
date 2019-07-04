@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd"
+>
+
+    <bean id="simulation" class="simulation.Simulation">
+        <property name="simulationEntry" ref="entry"/>
+        <property name="statisticManager" ref="manager"/>
+    </bean>
+
+    <bean id="entry" class="simulation.SimulationEntry">
+        <property name="cashierCount">
+            <value>3</value>
+        </property>
+        <property name="clientArrivalInterval">
+            <value>5</value>
+        </property>
+        <property name="clientPatienceTime">
+            <value>7</value>
+        </property>
+        <property name="maxServiceTime">
+            <value>20</value>
+        </property>
+        <property name="maxAmountBalance">
+            <value>2000</value>
+        </property>
+        <property name="minServiceTime">
+            <value>10</value>
+        </property>
+        <property name="priorityClientRate">
+            <value>0.1</value>
+        </property>
+        <property name="simulationDuration">
+            <value>1000</value>
+        </property>
+        <property name="maxBankAccountNumber">
+            <value>100</value>
+        </property>
+    </bean>
+
+    <bean id="persistence" class="persistence.StatisticPersistence" abstract="true" scope="prototype"/>
+    <bean id="hibernatePersistence" class="persistence.HibernatePersistence" parent="persistence"/>
+
+
+    <bean id="manager" class="simulation.StatisticManager"/>
+
+    <bean id="client" class="model.AbstractClient" abstract="true" scope="prototype"/>
+
+    <bean id="operation" class="model.AbstractOperation" abstract="true" scope="prototype"/>
+
+    <bean id="vipConsultation" class="model.VIPClient" parent="client">
+        <property name="operation" ref="consultation"/>
+    </bean>
+    <bean id="vipTransfer" class="model.VIPClient" parent="client">
+        <property name="operation" ref="transfer"/>
+    </bean>
+    <bean id="vipWithdraw" class="model.VIPClient" parent="client">
+        <property name="operation" ref="withdraw"/>
+    </bean>
+
+    <bean id="normalConsultation" class="model.Client" parent="client">
+        <property name="operation" ref="consultation"/>
+    </bean>
+    <bean id="normalTransfer" class="model.Client" parent="client">
+        <property name="operation" ref="transfer"/>
+    </bean>
+    <bean id="normalWithdraw" class="model.Client" parent="client">
+        <property name="operation" ref="withdraw"/>
+    </bean>
+
+    <bean id="consultation" class="model.Consultation" parent="operation"/>
+    <bean id="transfer" class="model.Transfer" parent="operation"/>
+    <bean id="withdraw" class="model.Withdraw" parent="operation"/>
+
+    <aop:config>
+
+        <!-- Spring AOP Pointcut definitions -->
+        <aop:pointcut id="servicePointcut"
+                      expression="execution(* simulation.StatisticManager.registerNonServedClient(..))"/>
+
+        <aop:pointcut id="transactionOperation"
+                      expression="execution(* simulation.StatisticManager.registerServedClient(..))"/>
+
+        <!-- Spring AOP aspect 1 -->
+        <aop:aspect id="serviceReporterAspect" ref="serviceReporter">
+            <aop:before method="nonServedClientEntry" pointcut-ref="servicePointcut"/>
+        </aop:aspect>
+
+        <!-- Spring AOP aspect 2 -->
+        <aop:aspect id="transactionReport" ref="serviceReporter">
+            <aop:after method="processed" pointcut-ref="servicePointcut"/>
+        </aop:aspect>
+
+    </aop:config>
+
+
+    <!-- Spring AOP aspect instances -->
+    <bean id="serviceReporter" class="simulation.ServiceReporter"/>
+
+</beans>
